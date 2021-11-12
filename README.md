@@ -17,7 +17,7 @@ User has an EKS Cluster already setup running above v1.19 with Nodegroups create
 4. Install git, version > 2.3X
 
 ## Diagram
-![Automate Amazon EKS upgrade diagram](https://<GITHUB_PUBLIC_REPO_URL>/diagram.png)
+![Automate Amazon EKS upgrade diagram](diagram.png)
 
 ## Build and Deploy Images
 
