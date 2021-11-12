@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "EksClusterName",
+    "ParameterValue": "<INPUT_CLUSTER_NAME>"
+  },
+  {
+    "ParameterKey": "EksUpdateClusterVersion",
+    "ParameterValue": "<INPUT_CLUSTER_UPGRADE_VERSION>"
+  },
+  {
+    "ParameterKey": "IAMStackName",
+    "ParameterValue": "aws-iam-stack"
+  }
+]

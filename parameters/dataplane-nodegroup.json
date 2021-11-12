@@ -1,0 +1,22 @@
+[
+  {
+    "ParameterKey": "EksClusterName",
+    "ParameterValue": "<INPUT_CLUSTER_NAME>"
+  },
+  {
+    "ParameterKey": "EksNodeGroup",
+    "ParameterValue": "<INPUT_WORKER_NODE_NAME>"
+  }, 
+  {
+    "ParameterKey": "EKSNodeGroupTemplateName",
+    "ParameterValue": "<INPUT_LAUNCH_TEMPLATE_NAME>"
+  },  
+  {
+    "ParameterKey": "EKSNodeGroupTemplateVersion",
+    "ParameterValue": "2"
+  }, 
+  {
+    "ParameterKey": "IAMStackName",
+    "ParameterValue": "aws-iam-stack"
+  }
+]

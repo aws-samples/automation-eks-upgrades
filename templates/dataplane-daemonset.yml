@@ -1,0 +1,98 @@
+# Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify,
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This product creates a lambda that updates the daemonset in the EKS Dataplane  
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  EksClusterName:
+    Type: String
+  EksNameSpace:
+    Type: String 
+    Default: 'kube-system'       
+  Version:
+    Type: String
+    Default: '1.0.0'    
+  IAMStackName:  
+    Type: String
+
+Resources:
+  AwsNodeDaemonsetUpgradeFunction:
+    Type: 'Custom::AwsNodeDaemonsetFunction'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt AwsNodeDaemonsetFunction.Arn
+
+  CoreDnsDaemonsetUpgradeFunction:
+    Type: 'Custom::CoreDnsDaemonsetFunction'
+    DependsOn: AwsNodeDaemonsetUpgradeFunction
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt CoreDnsDaemonsetFunction.Arn
+
+  KubeProxyDaemonsetUpgradeFunction:
+    Type: 'Custom::KubeProxyDaemonsetFunction'
+    DependsOn: CoreDnsDaemonsetUpgradeFunction
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt KubeProxyDaemonsetFunction.Arn
+
+  AwsNodeDaemonsetFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-dataplane-awsnode-daemonset-update'
+      ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/dataplane/daemonset:${Version}'
+      Timeout: 60
+      MemorySize: 256          
+      PackageType: Image
+      Role: 
+        Fn::ImportValue: !Sub '${IAMStackName}-lambda-execution-role-arn'
+      Environment:
+        Variables:
+          EksClusterName: !Ref EksClusterName
+          EksNameSpace: !Ref EksNameSpace
+          EksDaemon: 'aws-node'           
+
+  CoreDnsDaemonsetFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-dataplane-coreDns-daemonset-update'
+      ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/dataplane/daemonset:${Version}'
+      Timeout: 60
+      MemorySize: 256          
+      PackageType: Image
+      Role: 
+        Fn::ImportValue: !Sub '${IAMStackName}-lambda-execution-role-arn'
+      Environment:
+        Variables:
+          EksClusterName: !Ref EksClusterName
+          EksNameSpace: !Ref EksNameSpace
+          EksDaemon: 'coredns'          
+
+  KubeProxyDaemonsetFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-dataplane-kubeProxy-daemonset-update'
+      ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/dataplane/daemonset:${Version}'
+      Timeout: 60
+      MemorySize: 256          
+      PackageType: Image
+      Role: 
+        Fn::ImportValue: !Sub '${IAMStackName}-lambda-execution-role-arn'
+      Environment:
+        Variables:
+          EksClusterName: !Ref EksClusterName
+          EksNameSpace: !Ref EksNameSpace
+          EksDaemon: 'kube-proxy'           

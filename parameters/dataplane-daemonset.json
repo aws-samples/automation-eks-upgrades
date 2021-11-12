@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "EksClusterName",
+    "ParameterValue": "<INPUT_CLUSTER_NAME>"
+  }, 
+  {
+    "ParameterKey": "IAMStackName",
+    "ParameterValue": "aws-iam-stack"
+  }
+]

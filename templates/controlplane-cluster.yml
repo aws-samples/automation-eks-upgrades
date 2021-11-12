@@ -1,0 +1,105 @@
+# Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify,
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  This product creates a lambda that triggers EKS Cluster upgrade
+Transform: 'AWS::Serverless-2016-10-31'
+
+Parameters:
+  EksClusterName:
+    Type: String
+  EksUpdateClusterVersion:
+    Type: String      
+  Version:
+    Type: String
+    Default: '1.0.0'
+  IAMStackName:
+    Type: String
+
+
+Resources:
+  WaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  WaitCondition:
+    Type: 'AWS::CloudFormation::WaitCondition'
+    DependsOn: EKSControlPlanUpgradeFunction
+    Properties:
+      Handle: !Ref 'WaitHandle'
+      Timeout: '4500'
+
+  EKSControlPlanUpgrade:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: Controlplane-Upgrade
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/controlplane/upgrade:${Version}"      
+      Timeout: 60
+      MemorySize: 256      
+      PackageType: Image
+      Role: 
+        Fn::ImportValue: !Sub "${IAMStackName}-lambda-execution-role-arn"      
+      Environment:
+        Variables:
+          EksClusterName: !Ref EksClusterName
+          EksUpdateClusterVersion: !Ref EksUpdateClusterVersion
+
+  EKSControlPlanUpgradeFunction:
+    Type: 'Custom::EKSControlPlanUpgrade'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt EKSControlPlanUpgrade.Arn
+
+  EKSUpgradeStatusFunction:
+    Type: 'AWS::Serverless::Function'
+    DependsOn: EKSControlPlanUpgradeFunction
+    Properties:
+      FunctionName: Upgrade-status
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/controlplane/status:${Version}"      
+      PackageType: Image
+      Timeout: 60
+      MemorySize: 256      
+      Role: 
+        Fn::ImportValue: !Sub "${IAMStackName}-lambda-execution-role-arn"        
+      Environment:
+        Variables:
+          EksClusterName: !Ref EksClusterName
+          EksUpdateClusterVersion: !Ref EksUpdateClusterVersion
+          SignalUrl: !Ref WaitHandle
+
+  ScheduledRule:
+    Type: 'AWS::Events::Rule'
+    DependsOn: EKSUpgradeStatusFunction
+    Properties:
+      Description: ScheduledRule
+      Name: UpgradeEvent
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn:
+            'Fn::GetAtt':
+              - EKSUpgradeStatusFunction
+              - Arn
+          Id: EKSUpgradeStatusFunction
+
+  PermissionForEventsToInvokeLambda:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: Upgrade-status      
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn:
+        'Fn::GetAtt':
+          - ScheduledRule
+          - Arn            

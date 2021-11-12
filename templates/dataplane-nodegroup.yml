@@ -1,0 +1,113 @@
+# Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the Software
+# without restriction, including without limitation the rights to use, copy, modify,
+# merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  This product creates a lambda that updates the aws-auth config map on an EKS
+  cluster.
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  EksClusterName:
+    Type: String
+  EksNodeGroup:
+    Type: String
+  EKSNodeGroupTemplateName:
+    Type: String
+  EKSNodeGroupTemplateVersion:
+    Type: String
+  Version:
+    Type: String
+    Default: '1.0.0'        
+  IAMStackName:
+    Type: String
+
+Resources:
+  WaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  WaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: EKSNodeUpdateStatus
+    Properties:
+      Handle: !Ref 'WaitHandle'
+      Timeout: '4500'
+
+  EKSNodeUpdate:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-eks-nodeupdate'
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/dataplane/nodegroup:${Version}"            
+      Timeout: 60
+      MemorySize: 256       
+      PackageType: Image
+      Role: 
+        Fn::ImportValue: !Sub '${IAMStackName}-lambda-execution-role-arn'
+      Environment:
+        Variables:
+          EksClusterName: !Ref EksClusterName
+          EksNodeGroupTemplateVersion: !Ref EKSNodeGroupTemplateVersion
+          EksNodeGroupTemplateName: !Ref EKSNodeGroupTemplateName
+          EksNodeGroup: !Ref EksNodeGroup
+
+
+  EKSNodeUpdateFunction:
+    Type: 'Custom::EKSNodeUpdate'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt EKSNodeUpdate.Arn          
+
+  EKSNodeUpdateStatus:
+    Type: 'AWS::Serverless::Function'
+    DependsOn: EKSNodeUpdate
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-eks-nodeupdatestatus'
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/dataplane/status:${Version}"      
+      Timeout: 60
+      MemorySize: 256       
+      PackageType: Image
+      Role: 
+        Fn::ImportValue: !Sub '${IAMStackName}-lambda-execution-role-arn'
+      Environment:
+        Variables:                    
+          SignalUrl: !Ref WaitHandle
+          UpdateID: !GetAtt EKSNodeUpdateFunction.UpdateID
+          EksClusterName: !Ref EksClusterName
+          EksNodeGroupTemplateVersion: !Ref EKSNodeGroupTemplateVersion
+          EksNodeGroupTemplateName: !Ref EKSNodeGroupTemplateName
+          EksNodeGroup: !Ref EksNodeGroup
+
+  ScheduledRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Description: ScheduledRule
+      Name: !Sub '${AWS::StackName}-upgrade-event'
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn:
+            'Fn::GetAtt':
+              - EKSNodeUpdateStatus
+              - Arn
+          Id: EKSNodeUpdateStatus
+
+  PermissionForEventsToInvokeLambda:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-eks-nodeupdatestatus'
+      Action: 'lambda:InvokeFunction'
+      Principal: events.amazonaws.com
+      SourceArn:
+        'Fn::GetAtt':
+          - ScheduledRule
+          - Arn  
