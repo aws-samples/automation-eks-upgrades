@@ -22,6 +22,7 @@ import cfnresponse
 
 class ConfigKey:
     cluster_name_key = 'EksClusterName'
+    cluster_version_key = 'EksUpdateClusterVersion'
     node_group_key = 'EksNodeGroup'
     launch_template_name = 'EksNodeGroupTemplateName'
     launch_template_version = 'EksNodeGroupTemplateVersion'
@@ -38,6 +39,7 @@ session_name = 'EKS_UPDATE_NODE_SESSION'
 
 config_dict = {
     ConfigKey.cluster_name_key: os.environ[ConfigKey.cluster_name_key],
+    ConfigKey.cluster_version_key: os.environ[ConfigKey.cluster_version_key],
     ConfigKey.node_group_key: os.environ[ConfigKey.node_group_key],
     ConfigKey.launch_template_name: os.environ[ConfigKey.launch_template_name],
     ConfigKey.launch_template_version: os.environ[ConfigKey.launch_template_version]
@@ -61,6 +63,7 @@ def get_stdout(output):
 
 def update_cluster(config_dict):
     cluster_name = config_dict[ConfigKey.cluster_name_key]
+    cluster_version = config_dict[ConfigKey.cluster_version_key]
     node_group_name = config_dict[ConfigKey.node_group_key]
     launch_template_name = config_dict[ConfigKey.launch_template_name]
     launch_template_version = config_dict[ConfigKey.launch_template_version]
@@ -92,7 +95,9 @@ def update_cluster(config_dict):
 
     # describe nodegroup
     logger.info('run awscli to update nodegroup template version')
-    update_nodegroup_version = f'aws eks update-nodegroup-version --cluster-name {cluster_name} --nodegroup-name {node_group_name} --launch-template name={launch_template_name},version={launch_template_version}'
+    # You can update to the latest AMI version of your cluster's current Kubernetes version by specifying your cluster's Kubernetes version in the request.
+    # https://docs.aws.amazon.com/cli/latest/reference/eks/update-nodegroup-version.html
+    update_nodegroup_version = f'aws eks update-nodegroup-version  --cluster-name {cluster_name} --nodegroup-name {node_group_name} --kubernetes-version {cluster_version} --launch-template name={launch_template_name},version={launch_template_version}'
     output = subprocess.run(f'{update_nodegroup_version}', encoding='utf-8', capture_output=True, shell=True)
     command_output = get_stdout(output)
     logger.info(f'update nodegroup dataplane output: {command_output}')
