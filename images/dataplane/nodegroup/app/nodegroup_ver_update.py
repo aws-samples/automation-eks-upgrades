@@ -95,9 +95,11 @@ def update_cluster(config_dict):
 
     # describe nodegroup
     logger.info('run awscli to update nodegroup template version')
-    # You can update to the latest AMI version of your cluster's current Kubernetes version by specifying your cluster's Kubernetes version in the request.
-    # https://docs.aws.amazon.com/cli/latest/reference/eks/update-nodegroup-version.html
-    update_nodegroup_version = f'aws eks update-nodegroup-version  --cluster-name {cluster_name} --nodegroup-name {node_group_name} --kubernetes-version {cluster_version} --launch-template name={launch_template_name},version={launch_template_version}'
+    if cluster_version:
+        update_nodegroup_version = f'aws eks update-nodegroup-version  --cluster-name {cluster_name} --nodegroup-name {node_group_name} --kubernetes-version {cluster_version} --launch-template name={launch_template_name},version={launch_template_version}'
+    else:
+        update_nodegroup_version = f'aws eks update-nodegroup-version  --cluster-name {cluster_name} --nodegroup-name {node_group_name} --launch-template name={launch_template_name},version={launch_template_version}'
+
     output = subprocess.run(f'{update_nodegroup_version}', encoding='utf-8', capture_output=True, shell=True)
     command_output = get_stdout(output)
     logger.info(f'update nodegroup dataplane output: {command_output}')
