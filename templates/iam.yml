@@ -72,6 +72,11 @@ Resources:
             - !Sub 'arn:aws:eks:*:${AWS::AccountId}:cluster/*'
         - Effect: "Allow"
           Action:
+            - 'eks:DescribeAddonVersions'
+          Resource:
+            - '*'
+        - Effect: "Allow"
+          Action:
             - 'logs:CreateLogStream'
             - 'logs:DescribeLogGroups'
             - 'logs:DescribeLogStreams'

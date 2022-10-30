@@ -20,6 +20,8 @@ Transform: 'AWS::Serverless-2016-10-31'
 Parameters:
   EksClusterName:
     Type: String
+  EksUpdateClusterVersion:
+    Type: String
   EksNodeGroup:
     Type: String
   EKSNodeGroupTemplateName:
@@ -56,6 +58,7 @@ Resources:
       Environment:
         Variables:
           EksClusterName: !Ref EksClusterName
+          EksUpdateClusterVersion: !Ref EksUpdateClusterVersion
           EksNodeGroupTemplateVersion: !Ref EKSNodeGroupTemplateVersion
           EksNodeGroupTemplateName: !Ref EKSNodeGroupTemplateName
           EksNodeGroup: !Ref EksNodeGroup
@@ -83,6 +86,7 @@ Resources:
           SignalUrl: !Ref WaitHandle
           UpdateID: !GetAtt EKSNodeUpdateFunction.UpdateID
           EksClusterName: !Ref EksClusterName
+          EksUpdateClusterVersion: !Ref EksUpdateClusterVersion
           EksNodeGroupTemplateVersion: !Ref EKSNodeGroupTemplateVersion
           EksNodeGroupTemplateName: !Ref EKSNodeGroupTemplateName
           EksNodeGroup: !Ref EksNodeGroup

@@ -4,6 +4,10 @@
     "ParameterValue": "<INPUT_CLUSTER_NAME>"
   },
   {
+    "ParameterKey": "EksUpdateClusterVersion",
+    "ParameterValue": "<INPUT_CLUSTER_UPGRADE_VERSION>"
+  },
+  {
     "ParameterKey": "EksNodeGroup",
     "ParameterValue": "<INPUT_WORKER_NODE_NAME>"
   }, 
